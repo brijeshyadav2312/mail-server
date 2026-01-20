@@ -13,11 +13,10 @@ app.use(express.json());
 
 // CORS (temporary allow all for debugging)
 app.use(cors({
-  origin: "*",   // after working, replace with Netlify URL
+  origin: "https://brijeshyadavportfolio.netlify.app",
   methods: ["POST","GET","OPTIONS"],
 }));
 
-app.options("*", cors()); // preflight fix
 
 // Rate limit (5 req / 10 min)
 const limiter = rateLimit({
