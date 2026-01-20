@@ -11,9 +11,8 @@ const app = express();
 // Body parser
 app.use(express.json());
 
-// CORS (temporary allow all for debugging)
 app.use(cors({
-  origin: "https://brijeshyadavportfolio.netlify.app",
+  origin: "*",
   methods: ["POST","GET","OPTIONS"],
 }));
 
