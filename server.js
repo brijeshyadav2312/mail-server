@@ -8,19 +8,25 @@ const app = express();
 
 /* -------------------- MIDDLEWARE -------------------- */
 
-// CORS
-app.use(cors({
-  origin: process.env.FRONTEND_URL,
-  methods: ["POST"],
-}));
-
+// Body parser
 app.use(express.json());
 
-// Rate limit (5 requests / 10 minutes)
+// CORS (temporary allow all for debugging)
+app.use(cors({
+  origin: "*",   // after working, replace with Netlify URL
+  methods: ["POST","GET","OPTIONS"],
+}));
+
+app.options("*", cors()); // preflight fix
+
+// Rate limit (5 req / 10 min)
 const limiter = rateLimit({
   windowMs: 10 * 60 * 1000,
   max: 5,
-  message: "Too many requests, try again later"
+  message: {
+    success:false,
+    msg:"Too many requests. Try again later."
+  }
 });
 app.use("/send-mail", limiter);
 
@@ -34,55 +40,69 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-/* -------------------- UTIL FUNCTIONS -------------------- */
+// Verify transporter on startup
+transporter.verify((err, success) => {
+  if (err) {
+    console.log("❌ Mail server error:", err);
+  } else {
+    console.log("✅ Mail server ready");
+  }
+});
 
-const isValidEmail = (email) => {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-};
+/* -------------------- UTIL -------------------- */
+
+const isValidEmail = (email) =>
+  /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
 /* -------------------- ROUTES -------------------- */
+
+// Health check
+app.get("/", (req,res)=>{
+  res.send("Mail API running 🚀");
+});
 
 app.post("/send-mail", async (req, res) => {
   try {
     const { name, email, phone, message } = req.body;
 
-    /* ---- VALIDATIONS ---- */
+    /* VALIDATIONS */
     if (!name || !email || !message) {
       return res.status(400).json({
-        success: false,
-        msg: "Name, email and message are required"
+        success:false,
+        msg:"Name, email & message are required"
       });
     }
 
     if (!isValidEmail(email)) {
       return res.status(400).json({
-        success: false,
-        msg: "Invalid email format"
+        success:false,
+        msg:"Invalid email format"
       });
     }
 
     if (phone && phone.length < 10) {
       return res.status(400).json({
-        success: false,
-        msg: "Phone number must be at least 10 digits"
+        success:false,
+        msg:"Phone must be at least 10 digits"
       });
     }
 
     if (message.length < 16) {
       return res.status(400).json({
-        success: false,
-        msg: "Message must be at least 16 characters"
+        success:false,
+        msg:"Message must be 16 characters minimum"
       });
     }
 
-    /* ---- EMAIL TEMPLATE ---- */
+    /* EMAIL TEMPLATE */
     const mailOptions = {
-      from: `"Portfolio Contact" <${process.env.EMAIL}>`,
+      from: `"Portfolio" <${process.env.EMAIL}>`,
       to: process.env.EMAIL,
+      replyTo: email,
       subject: "New Contact Message",
       html: `
         <div style="font-family:Arial">
-          <h2>New Contact Message</h2>
+          <h2>New Message</h2>
           <hr/>
           <p><b>Name:</b> ${name}</p>
           <p><b>Email:</b> ${email}</p>
@@ -93,26 +113,27 @@ app.post("/send-mail", async (req, res) => {
       `
     };
 
-    /* ---- SEND MAIL ---- */
     await transporter.sendMail(mailOptions);
 
     res.json({
-      success: true,
-      msg: "Mail sent successfully"
+      success:true,
+      msg:"Mail sent successfully"
     });
 
   } catch (error) {
-    console.error("Mail error:", error);
+    console.error("MAIL ERROR:", error);
 
     res.status(500).json({
-      success: false,
-      msg: "Server error, try again later"
+      success:false,
+      msg:"Internal server error"
     });
   }
 });
 
 /* -------------------- SERVER -------------------- */
 
-app.listen(process.env.PORT, () => {
-  console.log(`Server running on port ${process.env.PORT}`);
+const PORT = process.env.PORT || 5000;
+
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
 });
