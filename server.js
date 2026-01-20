@@ -8,6 +8,9 @@ const app = express();
 
 /* -------------------- MIDDLEWARE -------------------- */
 
+app.set("trust proxy", 1);
+
+
 // Body parser
 app.use(express.json());
 
